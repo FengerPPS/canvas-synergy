@@ -4,6 +4,7 @@
 
 
 #import pytest
+from lib2to3.pgen2 import driver
 import time
 import json
 import csv
@@ -94,6 +95,14 @@ def click_ni_element(el, max_attempts=10):
             print(err.args)
             attempt += 1
             time.sleep(.5)
+
+def check_exists_by_xpath(driver, xpath):
+    try:
+        driver.find_element_by_xpath(xpath)
+    except NoSuchElementException:
+        return False
+    return True
+
 
 def click_stale_element(el, max_attempts=10):
     attempt = 1
@@ -195,9 +204,10 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
     
     time.sleep(.5)
     element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-    driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-    element.send_keys(Keys.HOME)
-    time.sleep(.5)
+    if element.is_enabled() and element.is_displayed():
+        driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+        element.send_keys(Keys.HOME)
+        time.sleep(.5)
     #driver.execute_script("window.scrollTo(0,40)")      
     driver.find_element(By.TAG_NAME,'body').send_keys(Keys.PAGE_UP) 
     time.sleep(1)
@@ -233,10 +243,12 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
             for m in range(first_csv_datarow - 1,num_csv_rows - 1):   
                 #print("Checking Student: " + data[m][0])
                 if data[m][2].isdigit():
-                    if (int(data[m][2]) == int(found_student_id) ) and (section in data[m][4]):
-                        #and (data[canvas_row][0] != "Student, Test") and (data[row - 1][0] != xstr(skip_student1)) and (data[row - 1][0] != xstr(skip_student2)) and (data[row - 1][0] != xstr(skip_student3)) and (data[row - 1][0] != xstr(skip_student4)):
-                        canvas_student_row = m
-            # print(str(canvas_student_row))
+                    if (int(data[m][2]) == int(found_student_id) ):
+                        #Check if the section matches the student record (you may have students in multiple sections)
+                        if section in data[m][4]:
+                            canvas_student_row = m
+                        else:
+                            print("Found student in gradebook scores export but the section didn't match. The course title is probably wrong in Sections.xls. Did you update everything to 2 when the semester changed?" )
             new = []
             new.append(canvas_student_row)
             syn_students.append(new)
@@ -250,27 +262,36 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
     
     time.sleep(1)
     element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-    driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-    element.send_keys(Keys.HOME)
+    if element.is_enabled() and element.is_displayed():
+        element.send_keys(Keys.HOME)
     time.sleep(1)
-    driver.find_element(By.TAG_NAME,'body').send_keys(Keys.PAGE_UP) 
-    time.sleep(1)
-    driver.find_element(By.TAG_NAME,'body').send_keys(Keys.HOME) 
-    time.sleep(1)
+    
+    #driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+    element = driver.find_element(By.TAG_NAME,'body')
+    element.send_keys(Keys.PAGE_UP) 
+    time.sleep(.5)
+    element.send_keys(Keys.HOME) 
+    time.sleep(.5)
     driver.execute_script("window.scrollTo(0,0)")   
-    time.sleep(1)
+    time.sleep(.5)
     
     for n in range(0,num_syn_assignments): 
         element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-        driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-        element.send_keys(Keys.RIGHT)
-        time.sleep(.25)
+        if element.is_enabled() and element.is_displayed():
+            driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+            element.send_keys(Keys.RIGHT)
+            time.sleep(.25)
+
         #driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span").send_keys(Keys.RIGHT)
-        found_assignment = driver.find_element(By.XPATH,"//*[@id='Assignment_Header_" + str(n) + "']").text
+        found_assignment_element = driver.find_element(By.XPATH,"//*[@id='Assignment_Header_" + str(n) + "']")
+        #hover = ActionChains(driver).move_to_element(found_assignment_element)
+        #hover.perform()
+
+        time.sleep(.1)
+        found_assignment = found_assignment_element.get_attribute("innerHTML")
+        ass_name = re.sub(r'\s\([0-9]{6,}\)$', '', found_assignment ).strip()
         
-        ass_name = re.sub(r'\s\([0-9]{6,}\)$', '', found_assignment )
-        
-        if ass_name.strip() == "":
+        if ass_name == "":
             print("Error: An assignment was not found in Synergy so all assignments will not sync. Don't use any other applications right now to avoid this issue")
         else:
             print("Found: " + ass_name)
@@ -279,8 +300,10 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
 
     time.sleep(1)
     element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-    driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-    element.send_keys(Keys.HOME)
+    if element.is_enabled() and element.is_displayed():
+        driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+        element.send_keys(Keys.HOME)
+
     driver.find_element(By.TAG_NAME,'body').send_keys(Keys.PAGE_UP) 
     driver.find_element(By.TAG_NAME,'body').send_keys(Keys.HOME) 
     driver.execute_script("window.scrollTo(0,0)")   
@@ -314,7 +337,7 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
     for col in range(1,num_syn_assignments + 1):
         #driver.execute_script("window.scrollTo(0,40)")        
         driver.find_element(By.TAG_NAME,'body').send_keys(Keys.PAGE_UP) 
-            
+        time.sleep(.5)    
         print("Syncing: " + syn_assignment_names[col - 1] + " ")
         #tried moving the slider but couldn't scroll to the first student so went back to search method
         #if not dryrun and col > (1 + assignmentstoskip): #move the grades table one col right
@@ -343,7 +366,7 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
             driver.find_element(By.ID, "txt_GradeBookSearch").send_keys(Keys.CONTROL + "a")
             driver.find_element(By.ID, "txt_GradeBookSearch").send_keys(syn_assigment_name)
             driver.find_element(By.ID, "txt_GradeBookSearch").send_keys(Keys.ENTER)
-            #speedup time.sleep(.25)
+            #time.sleep(.5)
 
             if col > assignmentstoskip - 1:
                 #loop students
@@ -367,6 +390,7 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
                         curElement = driver.find_element(By.CSS_SELECTOR, ".GB_AssignmentCellEditMode .GB_AssignmentGridTextbox")
                           
                         newscore = data[canvas_row][canvas_ass_col]
+                        #print("New Score: " + newscore)
                         replaced_string = newscore.replace(".", "", 1)
                         if replaced_string.isdigit():
                             tail_dot_rgx = re.compile(r'(?:(\.)|(\.\d*?[1-9]\d*?))0+(?=\b|[^0-9])')
@@ -379,6 +403,7 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
                                 newscore = Keys.BACKSPACE                       
                             if (newscore != "N/A"):
                                 curElement.send_keys(newscore)
+                        
                 next
         else:
             print("Skipping: '" + syn_assignment_names[col - 1] + "'" + " (Not Found in Canvas Export)")
@@ -386,8 +411,12 @@ def addscores(driver, csvfilename, section, assignmentstoskip ):
 
     savescores(driver, num_updates ) 
     element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-    driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-    element.send_keys(Keys.HOME)
+    if element.is_enabled() and element.is_displayed():
+        driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+        element.send_keys(Keys.HOME)
+    for n in range(3,0,-1):
+        print("Waiting... ")
+        time.sleep(1)
     
     
 def sortgradebook(driver):
@@ -442,7 +471,7 @@ def sortgradebook(driver):
     
     
     
-def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group_data, othersectionid1 = "",othersectionid2 = "",othersectionid3 = "",othersectionid4 = "",othersectionid5 = ""):
+def createassignmentsincourse(driver, course_code, ass_group_data, othersectionid1 = "",othersectionid2 = "",othersectionid3 = "",othersectionid4 = "",othersectionid5 = ""):
     
     SIS_COURSE_CODE = 0
     COURSE_CODE = 1
@@ -471,10 +500,10 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
     TURNITIN_ENABLED = 24
     VERICITE_ENABLED = 25
     
-    #Section Info Excel file Assignment Groups Tab
+    #Section Info Excel file Assignment Groups Tab (0 based) 
     ASS_GROUP_SYNC = 1
     ASS_GROUP_NAME = 3
-
+    ASS_SHOW_ONLY_WHEN_SCORED = 4
 
     MIN_MATCH_RATIO = 90
     
@@ -484,8 +513,8 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
 
     sheet_ranges = wb['Main report']
     n = 1
-    
-    time.sleep(2)
+    print("Scanning Synergy Gradebook")
+    time.sleep(1)
     #Get number of assinments
     #get_xpath_count("xpath=//div*[matches(text(), \"day \\d night\")]");
     num_syn_assignments = len(driver.find_elements(By.XPATH,"//*[contains(@id,'Assignment_Header_')]"))
@@ -494,22 +523,40 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
     syn_assignment_names = []
     for n in range(0,num_syn_assignments): 
         element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")
-        driver.execute_script("return arguments[0].scrollIntoView(true);", element)
-        element.send_keys(Keys.RIGHT)
-        time.sleep(.25)
-        found_assignment = driver.find_element(By.XPATH,"//*[@id='Assignment_Header_" + str(n) + "']").get_attribute("innerHTML").strip()
+        if element.is_enabled() and element.is_displayed():
+            driver.execute_script("return arguments[0].scrollIntoView(true);", element)
+            element.send_keys(Keys.RIGHT)
+            time.sleep(.25)
+   
         #found_assignment = driver.find_element(By.XPATH,"//*[@id='Assignment_Header_" + str(n) + "']").text
-        syn_assignment_names.append(found_assignment.strip())
-        print("Found " + found_assignment.strip() + " in Synergy")
-    element.send_keys(Keys.HOME)
-    time.sleep(.5)
+        #driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span").send_keys(Keys.RIGHT)
+        
+        
+        found_assignment_element = driver.find_element(By.XPATH,"//*[@id='Assignment_Header_" + str(n) + "']")
+        #hover = ActionChains(driver).move_to_element(found_assignment_element)
+        #hover.perform()
+        time.sleep(.1)
+        if found_assignment_element:
+            found_assignment = found_assignment_element.get_attribute("innerHTML").strip()
+            
+            if found_assignment == "":
+                print("Error: An assignment was not found in Synergy so all assignments will not sync. Don't use any other applications right now to avoid this issue")
+            else:
+                print("Found " + found_assignment + " in Synergy")
+                syn_assignment_names.append(found_assignment)
+
+    element = driver.find_element(By.XPATH,"//*[@id='div_scroll_Top']/span")    
+    if element.is_enabled() and element.is_displayed():
+        element.send_keys(Keys.HOME)
+        time.sleep(.5)
+
     #//*[@id='Assignment_Header_
     #//*[contains(@id,'Assignment_Header_')]
     #IMPORTANT DON'T FORGET -- Assignments in the "Imported Assignments" group are skipped unless that type is in the Sections spreadsheet
     for line in sheet_ranges.iter_rows(min_row=firstdatarow, max_col=datacols):
 
         if line[COURSE_CODE].value == course_code:
-            print("Processing :" + line[ASSIGNMENT_NAME].value)
+            print("Processing: " + line[ASSIGNMENT_NAME].value)
             match_ratio = 0
             #print("Searching: '" + line[5].value + "'")
             for n in range(0,num_syn_assignments): 
@@ -535,8 +582,9 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
                 sync_ass = "No"
                 ass_type_name = "None"
             else:
-                ass_type_name = ass_group_data[ind[0]][ind[1]][0][ASS_GROUP_NAME]
-                sync_ass = ass_group_data[ind[0]][ind[1]][0][ASS_GROUP_SYNC]
+                ass_type_name =         ass_group_data[ind[0]][ind[1]][0][ASS_GROUP_NAME]
+                sync_ass =              ass_group_data[ind[0]][ind[1]][0][ASS_GROUP_SYNC]
+                showonlywhenscored =    ass_group_data[ind[0]][ind[1]][0][ASS_SHOW_ONLY_WHEN_SCORED]
 
             if (line[DUE_AT].value != None) and (match_ratio < MIN_MATCH_RATIO) and (line[POINTS_POSSIBLE].value > 0) and (line[PUBLISHED].value > 0) and (sync_ass == "Yes"): #Skip assignmts without date and there are matches and have score and are published and don't have synced types
 
@@ -680,7 +728,7 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
                         element.click()
                         
                 driver.find_element(By.TAG_NAME,'body').send_keys(Keys.CONTROL + Keys.HOME) 
-                
+                time.sleep(.5)
                 #for n in range(5,0,-1):
                 #    print("Saving... " + str(n))
                 #    time.sleep(1)
@@ -703,7 +751,7 @@ def createassignmentsincourse(driver, course_code, showonlywhenscored, ass_group
           
 
 
-def changesection(driver,syn_sectionid):
+def changesection(driver,syn_sectionid,syn_course_title):
     print("\nChanging Synergy section...\n")
     global current_syn_section_id 
     #print(syn_sectionid)
@@ -729,11 +777,17 @@ def changesection(driver,syn_sectionid):
             wait_for_element_to_load(driver, "focus_selections", 30)
             #element = driver.find_element(By.ID, "lbl_FocusButton")
             #click_ni_element(element)
-            print("Selecting Section ID: " + syn_sectionid)
+            print("Selecting " + syn_course_title + " " + syn_sectionid)
             #Note - we are getting lucky here with T/A sections 
             #as they have the same section id as the main section so we may have to 
             #add some code if they aren't first in the list
-            driver.find_element(By.XPATH,"//*[ contains (text(),'" + syn_sectionid + "' ) ]").click()
+            #//*[@id="HomeRoomClasses"]/table/tbody/tr[5]/td[2]/div[2]
+            #HomeRoomClasses > table > tbody > tr:nth-child(5) > td:nth-child(2) > div:nth-child(2)
+            #driver.find_element(By.XPATH,"//*[ contains (text(),'" + syn_sectionid + "' ) ]").click()
+
+            driver.find_element(By.XPATH,"//table[@class='table-focus']/tbody/tr[td[contains(text(), '" + syn_sectionid + "')] and td[div[text()='" + syn_course_title + "' ] ]]").click()
+
+
 
             for n in range(5,0,-1):
                 print("Waiting for section to change... ")
@@ -742,6 +796,19 @@ def changesection(driver,syn_sectionid):
                 if selected_section.find(syn_sectionid) != -1:
                     break
             print("Changed section to: " + selected_section)
+            
+            #//table[@class='table-focus']/tbody/tr[td[contains(text(), '1695B2-F3') ]  ]
+            #//table[@class='table-focus']/tbody/tr[td/div[contains(text(), 'Engineering 4') ]  ]
+            #https://www.google.com/search?q=selenium+find+table+row+by+text+multiple+conditions+pythonn
+#https://www.youtube.com/watch?v=OTStvDR_jF4
+#https://stackoverflow.com/questions/19721111/how-to-search-node-by-exact-text-match-using-xpath-in-webdriver
+#https://stackoverflow.com/questions/4037255/selenium-xpath-to-match-a-table-row-containing-multiple-elements
+#https://stackoverflow.com/questions/65841484/python-selenium-find-element-by-xpath-multiple-conditions/65841771
+#https://stackoverflow.com/questions/56817313/python-selenium-how-to-find-an-element-not-containing-a-string
+ #           for n in range(5,0,-1):
+  #              print("Verify T/A Section Wasn't Selected... ")
+   #             time.sleep(1)
+
 
         current_syn_section_id = syn_sectionid
     else:
@@ -771,13 +838,11 @@ def savescores(driver, num_updates):
     #    print("Saving... " + str(n))
     #    time.sleep(1)
 
-def runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,assignmentstoskip):
+def runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,assignmentstoskip):
 
-    changesection(driver,synergy_section_id)
+    changesection(driver,synergy_section_id,synergy_course_title)
     #sortgradebook(driver)
-    print("Running Score Update from File: " + csvfilename )
-    print(synergy_section_id)
-    print(canvas_section)
+    print("Running Score Update from File: " + csvfilename + " for " + synergy_section_id )
     addscores(driver, csvfilename, canvas_section,assignmentstoskip)
      
 def launchchrome():
@@ -871,7 +936,7 @@ def sync():
     SEC_TITLE =     0
     SEC_SYNC =      1
     SEC_SKIP =      2
-    SEC_SHOW =      3
+    #SEC_SHOW =      3  #not used 
     SEC_COURSE_CODE = 4
     SEC_PREFIX =    5
     SEC_PARENT =    6
@@ -894,28 +959,32 @@ def sync():
     driver.get("https://sis-portland.cascadetech.org/Portland/gb_GradeBookMain.aspx")
     driver.implicitly_wait(10)
     
-    for n in range(10,0,-1):
-        print("Select Correct Term... " + str(n))
+    for n in range(1,0,-1):
+        #print("Select Correct Term... " + str(n))
         time.sleep(1)
-
+    print("Loading 'Section Info' spreadsheet ")
     wb = load_workbook(filename = 'Sections.xlsx')
     maxdatacols = 25
     #print(wb.sheetnames)
     sheet_ranges = wb['Section Info']       
-
+    print("Reading spreadsheet...")
     sline = 0
     for secline in sheet_ranges.iter_rows(min_row=2, max_col=maxdatacols, values_only=True):
-        
+        print("Reading assignment group data...")
         ass_group_sheet = wb['Assignment Groups']        
-        ass_group_data = np.array([[cell.value for cell in row] for row in ass_group_sheet.iter_rows(min_row=2, max_col=4)])
+        ass_group_data = np.array([[cell.value for cell in row] for row in ass_group_sheet.iter_rows(min_row=2, max_col=5 )])
         # ind = np.where(np.array(ass_group_data) == '3412312')
         # print(ind)
         # print(ass_group_data[ind[0]][ind[1]])
-
+        
         #print(ass_group_data)        
         #print(secline)
         #print(secline[SEC_SYNC])
+        
+        
         if secline[SEC_SYNC] != None:
+            course_code = secline[SEC_COURSE_CODE] 
+            print("Sync " + course_code + " = " + secline[SEC_SYNC])
             if secline[SEC_SYNC] == "Yes":
                 othersectionid1 = ""
                 othersectionid2 = ""
@@ -923,7 +992,7 @@ def sync():
                 othersectionid4 = ""
                 othersectionid5 = ""
                
-                course_code = secline[SEC_COURSE_CODE] 
+                
                 #re.sub(r'(^P)', 'F', secline[2])
                 if secline[SEC_PB_NUM] != None:
                     othersectionid1 = course_code + "-" + secline[SEC_PREFIX] + str(secline[SEC_PB_NUM])
@@ -936,51 +1005,55 @@ def sync():
                 if secline[SEC_PF_NUM] != None:
                     othersectionid5 = course_code + "-" + secline[SEC_PREFIX] + str(secline[SEC_PF_NUM])
                 
-               
+                synergy_course_title = secline[SEC_TITLE]              
+                regex = re.compile('[^\w ]')
+                #Remove all non text from course title 
+                canvas_course_title = regex.sub('', synergy_course_title)
+                
                 
                 synergy_section_id = course_code + "-" + secline[SEC_PREFIX] + str(secline[SEC_PA_NUM])
-                changesection(driver,synergy_section_id)
-                print("Checking for Missing Assignments in " + secline[SEC_TITLE])
+                changesection(driver,synergy_section_id,synergy_course_title)
+                print("Checking for Missing Assignments in " + canvas_course_title)
                 
        
                 
-                createassignmentsincourse(driver, secline[SEC_COURSE_CODE] + secline[SEC_PARENT], secline[SEC_SHOW], ass_group_data, othersectionid1,othersectionid2,othersectionid3,othersectionid4,othersectionid5)
+                createassignmentsincourse(driver, secline[SEC_COURSE_CODE] + secline[SEC_PARENT], ass_group_data, othersectionid1,othersectionid2,othersectionid3,othersectionid4,othersectionid5)
                
                 
                 csvfilename = getcsvfilename(secline[SEC_COURSE_CODE])
 
                 if len(csvfilename) > 0:
-                    coursename = secline[SEC_TITLE] 
-                    canvas_section = coursename + secline[SEC_PA_NAME]
+
+                    canvas_section = canvas_course_title + secline[SEC_PA_NAME]
                     print("Updating Scores for: " + canvas_section)
                     
-                    runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])
+                    runscoreupdate(driver,synergy_section_id,synergy_course_title, canvas_section,csvfilename,secline[SEC_SKIP])
                     
                     if secline[SEC_PB_NUM] != None: #other section 1
                         synergy_section_id =  course_code + "-"  + secline[SEC_PREFIX] + str(secline[SEC_PB_NUM])
-                        canvas_section = coursename + secline[SEC_PB_NAME]
+                        canvas_section = canvas_course_title + secline[SEC_PB_NAME]
                         print("Updating Scores for: " + canvas_section)
-                        runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])
+                        runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,secline[SEC_SKIP])
                     if secline[SEC_PC_NUM] != None: #other section 2
                         synergy_section_id =  course_code + "-"  + secline[SEC_PREFIX] + str(secline[SEC_PC_NUM])                       
-                        canvas_section = coursename + secline[SEC_PC_NAME]
+                        canvas_section = canvas_course_title + secline[SEC_PC_NAME]
                         print("Updating Scores for: " + canvas_section)
-                        runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])
+                        runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,secline[SEC_SKIP])
                     if secline[SEC_PD_NUM] != None: #other section 3
                         synergy_section_id =  course_code + "-"  + secline[SEC_PREFIX] + str(secline[SEC_PD_NUM])
-                        canvas_section = coursename + secline[SEC_PD_NAME]
+                        canvas_section = canvas_course_title + secline[SEC_PD_NAME]
                         print("Updating Scores for: " + canvas_section)
-                        runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])
+                        runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,secline[SEC_SKIP])
                     if secline[SEC_PE_NUM] != None: #other section 4
                         synergy_section_id =  course_code + "-"  + secline[SEC_PREFIX] + str(secline[SEC_PE_NUM])
-                        canvas_section = coursename + secline[SEC_PE_NAME]
+                        canvas_section = canvas_course_title + secline[SEC_PE_NAME]
                         print("Updating Scores for: " + canvas_section)
-                        runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])
+                        runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,secline[SEC_SKIP])
                     if secline[SEC_PF_NUM] != None: #other section 5
                         synergy_section_id =  course_code + "-"  + secline[SEC_PREFIX] + str(secline[SEC_PF_NUM])
-                        canvas_section = coursename + secline[SEC_PF_NAME]
+                        canvas_section = canvas_course_title + secline[SEC_PF_NAME]
                         print("Updating Scores for: " + canvas_section)
-                        runscoreupdate(driver,synergy_section_id,canvas_section,csvfilename,secline[SEC_SKIP])    
+                        runscoreupdate(driver,synergy_section_id,synergy_course_title,canvas_section,csvfilename,secline[SEC_SKIP])    
                     print("Sync successful! Deleting " + csvfilename )
                     deletefile(csvfilename)  
                 sline = sline + 1
@@ -1047,7 +1120,7 @@ sync()
 # def find(driver):
     # my_element_id = "//*[@id='ctl00_lowerFixedBarContainer_LeftButtonContainer']/li[1]/div/a"
     # element = driver.find_elements(By.XPATH,my_element_id)
-    # if element:
+    # if element.is_enabled() and element.is_displayed():
         # return element
     # else:
         # return False

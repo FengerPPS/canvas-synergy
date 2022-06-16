@@ -50,7 +50,7 @@ class ExportGB():
 
   def save_export(self, coursecode):
     print("Waiting for page to load")
-    for n in range(5,0,-1):
+    for n in range(7,0,-1):
       print(".")
       time.sleep(1)
     
@@ -76,23 +76,22 @@ class ExportGB():
     self.driver.find_element(By.ID, "pseudonym_session_password").send_keys(Keys.ENTER)
     #self.driver.find_element(By.CSS_SELECTOR, ".ic-Login").click()
     #self.driver.find_element(By.CSS_SELECTOR, ".Button:nth-child(1)").click()
-
-    """     self.driver.get("https://lms.pps.net/courses/79794/gradebook")
-    self.save_export("1627RT1")
     
-    self.driver.get("https://lms.pps.net/courses/64271/gradebook")
-    self.save_export("1626RA1")
-    """ 
-    self.driver.get("https://lms.pps.net/courses/64481/gradebook")
-    self.save_export("1695A1") 
+    self.driver.get("https://lms.pps.net/courses/80436/gradebook")
+    self.save_export("1627RT2")
 
-    """
-    self.driver.get("https://lms.pps.net/courses/80428/gradebook")
-    self.save_export("1695B1")
+    self.driver.get("https://lms.pps.net/courses/64302/gradebook")
+    self.save_export("1626RA2")
+  
+    self.driver.get("https://lms.pps.net/courses/64513/gradebook")
+    self.save_export("1695A2") 
 
-    self.driver.get("https://lms.pps.net/courses/80432/gradebook")
-    self.save_export("1695C1") 
-    """
+    self.driver.get("https://lms.pps.net/courses/80430/gradebook")
+    self.save_export("1695B2")
+
+    self.driver.get("https://lms.pps.net/courses/80434/gradebook")
+    self.save_export("1695C2") 
+
 
 
 
